@@ -55,7 +55,7 @@ source /opt/ros/jazzy/setup.bash
 From the workspace root:
 
 ```bash
-cd ~/641_project
+cd ~/641-project
 colcon build --packages-select cr10_ik_project
 source install/setup.bash
 ```
