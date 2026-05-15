@@ -4,5 +4,3 @@ log/
 
 *.pyc
 __pycache__/
-
-CODE_EXPLANATION_LOCAL.md

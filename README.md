@@ -7,16 +7,6 @@ The project uses a custom Python IK implementation and publishes directly to
 `/joint_states`. It does not use MoveIt, MoveGroup, KDL, TRAC-IK, robot service
 IK calls, or the Joint State Publisher GUI.
 
-## What Is Included
-
-- Custom CR10 forward kinematics
-- Custom numerical Jacobian
-- Custom damped least-squares inverse kinematics
-- Straight-line end-effector motion from point A to point B
-- Circular end-effector motion around center point A with radius R
-- Reachability checks before motion starts
-- RViz robot visualization
-- RViz end-effector trace marker on `/ee_trace`
 
 ## Workspace Layout
 
@@ -60,9 +50,6 @@ Make sure ROS 2 is sourced before building:
 source /opt/ros/jazzy/setup.bash
 ```
 
-If your ROS distribution is not Jazzy, replace `jazzy` with your installed
-distribution name.
-
 ## Build
 
 From the workspace root:
@@ -89,13 +76,6 @@ ros2 launch cr10_ik_project straight_line_demo.launch.py \
   end_x:=-0.65 end_y:=-0.35 end_z:=1.0 \
   steps:=200
 ```
-
-The node will:
-
-1. Generate Cartesian waypoints along the line from A to B.
-2. Check that every waypoint is reachable.
-3. If reachable, publish joint states to `/joint_states`.
-4. Publish the end-effector trace to `/ee_trace`.
 
 ## Run Circular Motion
 
@@ -157,17 +137,3 @@ Both methods return:
 - `True` if the full trajectory is reachable and motion is enabled.
 - `False` if any waypoint is unreachable.
 
-## Test
-
-```bash
-cd ~/641_project
-source /opt/ros/jazzy/setup.bash
-source install/setup.bash
-colcon test --packages-select cr10_ik_project
-```
-
-## Notes
-
-- Use the launch files in `cr10_ik_project`, not the vendor MoveIt launch files.
-- The Dobot vendor packages are included only for robot model/URDF/mesh support.
-- The custom IK logic is in `cr10_ik_project/cr10_kinematics.py`.
