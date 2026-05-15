@@ -1,8 +1,8 @@
 from cr10_ik_project.cr10_kinematics import (
-    circular_waypoint,
+    DEFAULT_Q_SEED,
     forward_position,
     JOINT_NAMES,
-    solve_position_ik,
+    validate_circle,
 )
 from geometry_msgs.msg import Point
 import numpy as np
@@ -19,22 +19,62 @@ class CircularIK(Node):
         self.joint_pub = self.create_publisher(JointState, '/joint_states', 10)
         self.marker_pub = self.create_publisher(Marker, '/ee_trace', 10)
 
-        self.declare_parameter('center', [-0.55, 0.0, 0.90])
+        self.declare_parameter('center_x', -0.55)
+        self.declare_parameter('center_y', 0.0)
+        self.declare_parameter('center_z', 0.90)
         self.declare_parameter('radius', 0.4)
         self.declare_parameter('steps', 300)
 
-        self.center = np.array(self.get_parameter('center').value, dtype=float)
-        self.radius = self.get_parameter('radius').value
         self.steps = self.get_parameter('steps').value
         self.i = 0
-        self.q = np.array([0.0, 0.4, -0.4, 0.0, 0.0, 0.0])
+        self.q = DEFAULT_Q_SEED.copy()
+        self.joint_trajectory = []
+        self.motion_enabled = False
 
         self.trace_points = []
+        center = [
+            self.get_parameter('center_x').value,
+            self.get_parameter('center_y').value,
+            self.get_parameter('center_z').value,
+        ]
+        radius = self.get_parameter('radius').value
+        self.move_circle(center, radius, self.steps)
+
         self.timer = self.create_timer(0.03, self.update)
 
-    def solve_ik(self, target):
-        self.q = solve_position_ik(target, self.q)
-        return self.q
+    def move_circle(self, center_point_a, radius_r, steps=300):
+        center_point_a = np.array(center_point_a, dtype=float)
+        radius_r = float(radius_r)
+        self.steps = steps
+
+        reachable, joint_trajectory, message = validate_circle(
+            center_point_a,
+            radius_r,
+            self.steps,
+            self.q,
+        )
+
+        if not reachable:
+            self.motion_enabled = False
+            self.joint_trajectory = []
+            self.trace_points = []
+            self.get_logger().error(
+                'Circular motion not started: {}'.format(message)
+            )
+            return False
+
+        self.i = 0
+        self.q = joint_trajectory[0].copy()
+        self.joint_trajectory = joint_trajectory
+        self.trace_points = []
+        self.motion_enabled = True
+        self.get_logger().info(
+            'Circular motion accepted with center A={} and R={:.3f}.'.format(
+                center_point_a.tolist(),
+                radius_r,
+            )
+        )
+        return True
 
     def publish_joints(self, q):
         msg = JointState()
@@ -68,16 +108,18 @@ class CircularIK(Node):
         self.marker_pub.publish(marker)
 
     def update(self):
-        target = circular_waypoint(self.center, self.radius, self.i, self.steps)
+        if not self.motion_enabled:
+            return
 
-        q = self.solve_ik(target)
+        q = self.joint_trajectory[self.i]
+        self.q = q.copy()
         self.publish_joints(q)
         self.trace_points.append(self.current_ee_point(q))
 
         self.publish_trace()
 
         self.i += 1
-        if self.i > self.steps:
+        if self.i >= len(self.joint_trajectory):
             self.i = 0
             self.trace_points = []
 

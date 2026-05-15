@@ -6,6 +6,8 @@ import numpy as np
 JOINT_NAMES = ['joint1', 'joint2', 'joint3', 'joint4', 'joint5', 'joint6']
 JOINT_LOWER_LIMITS = np.array([-6.27, -6.27, -2.861, -6.27, -6.27, -6.27])
 JOINT_UPPER_LIMITS = np.array([6.27, 6.27, 2.861, 6.27, 6.27, 6.27])
+DEFAULT_Q_SEED = np.array([0.0, 0.4, -0.4, 0.0, 0.0, 0.0])
+IK_TOLERANCE = 0.002
 
 
 def trans(x, y, z):
@@ -84,7 +86,7 @@ def solve_position_ik(
     target,
     q_seed,
     max_iterations=80,
-    tolerance=0.002,
+    tolerance=IK_TOLERANCE,
     step_size=0.45,
     damping=0.08,
 ):
@@ -108,6 +110,38 @@ def solve_position_ik(
     return q
 
 
+def point_reachability(target, q_seed=None, tolerance=IK_TOLERANCE):
+    if q_seed is None:
+        q_seed = DEFAULT_Q_SEED
+
+    target = np.asarray(target, dtype=float)
+    if target.shape != (3,) or not np.all(np.isfinite(target)):
+        return False, np.asarray(q_seed, dtype=float), math.inf
+
+    q = solve_position_ik(target, q_seed, tolerance=tolerance)
+    error = np.linalg.norm(target - forward_position(q))
+    return error <= tolerance, q, error
+
+
+def validate_trajectory(waypoints, q_seed=None, tolerance=IK_TOLERANCE):
+    if q_seed is None:
+        q_seed = DEFAULT_Q_SEED
+
+    q = np.asarray(q_seed, dtype=float).copy()
+    joint_trajectory = []
+
+    for index, target in enumerate(waypoints):
+        reachable, q, error = point_reachability(target, q, tolerance)
+        if not reachable:
+            return False, joint_trajectory, (
+                'Waypoint {} is outside the reachable workspace. '
+                'Target: [{:.3f}, {:.3f}, {:.3f}], FK error: {:.4f} m'
+            ).format(index, target[0], target[1], target[2], error)
+        joint_trajectory.append(q.copy())
+
+    return True, joint_trajectory, 'Trajectory is reachable.'
+
+
 def straight_line_waypoints(start, end, steps):
     start = np.asarray(start, dtype=float)
     end = np.asarray(end, dtype=float)
@@ -115,6 +149,11 @@ def straight_line_waypoints(start, end, steps):
     for i in range(steps + 1):
         s = i / steps
         yield (1.0 - s) * start + s * end
+
+
+def validate_straight_line(start, end, steps, q_seed=None):
+    waypoints = list(straight_line_waypoints(start, end, steps))
+    return validate_trajectory(waypoints, q_seed)
 
 
 def circular_waypoint(center, radius, step, steps):
@@ -126,3 +165,18 @@ def circular_waypoint(center, radius, step, steps):
         center[1] + radius * math.sin(theta),
         center[2],
     ])
+
+
+def circular_waypoints(center, radius, steps):
+    center = np.asarray(center, dtype=float)
+
+    for i in range(steps + 1):
+        yield circular_waypoint(center, radius, i, steps)
+
+
+def validate_circle(center, radius, steps, q_seed=None):
+    if radius <= 0.0 or not math.isfinite(radius):
+        return False, [], 'Circle radius must be a positive finite number.'
+
+    waypoints = list(circular_waypoints(center, radius, steps))
+    return validate_trajectory(waypoints, q_seed)

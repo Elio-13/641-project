@@ -1,7 +1,8 @@
 from cr10_ik_project.cr10_kinematics import (
+    DEFAULT_Q_SEED,
     forward_position,
     JOINT_NAMES,
-    solve_position_ik,
+    validate_straight_line,
 )
 from geometry_msgs.msg import Point
 import numpy as np
@@ -18,22 +19,68 @@ class StraightLineIK(Node):
         self.joint_pub = self.create_publisher(JointState, '/joint_states', 10)
         self.marker_pub = self.create_publisher(Marker, '/ee_trace', 10)
 
-        self.declare_parameter('start', [-0.65, 0.35, 1.00])
-        self.declare_parameter('end', [-0.65, -0.35, 1.00])
+        self.declare_parameter('start_x', -0.65)
+        self.declare_parameter('start_y', 0.35)
+        self.declare_parameter('start_z', 1.00)
+        self.declare_parameter('end_x', -0.65)
+        self.declare_parameter('end_y', -0.35)
+        self.declare_parameter('end_z', 1.00)
         self.declare_parameter('steps', 200)
 
-        self.start = np.array(self.get_parameter('start').value, dtype=float)
-        self.end = np.array(self.get_parameter('end').value, dtype=float)
         self.steps = self.get_parameter('steps').value
         self.i = 0
-        self.q = np.array([0.0, 0.4, -0.4, 0.0, 0.0, 0.0])
+        self.q = DEFAULT_Q_SEED.copy()
+        self.joint_trajectory = []
+        self.motion_enabled = False
 
         self.trace_points = []
+        start = [
+            self.get_parameter('start_x').value,
+            self.get_parameter('start_y').value,
+            self.get_parameter('start_z').value,
+        ]
+        end = [
+            self.get_parameter('end_x').value,
+            self.get_parameter('end_y').value,
+            self.get_parameter('end_z').value,
+        ]
+        self.move_line(start, end, self.steps)
+
         self.timer = self.create_timer(0.03, self.update)
 
-    def solve_ik(self, target):
-        self.q = solve_position_ik(target, self.q)
-        return self.q
+    def move_line(self, point_a, point_b, steps=200):
+        point_a = np.array(point_a, dtype=float)
+        point_b = np.array(point_b, dtype=float)
+        self.steps = steps
+
+        reachable, joint_trajectory, message = validate_straight_line(
+            point_a,
+            point_b,
+            self.steps,
+            self.q,
+        )
+
+        if not reachable:
+            self.motion_enabled = False
+            self.joint_trajectory = []
+            self.trace_points = []
+            self.get_logger().error(
+                'Straight-line motion not started: {}'.format(message)
+            )
+            return False
+
+        self.i = 0
+        self.q = joint_trajectory[0].copy()
+        self.joint_trajectory = joint_trajectory
+        self.trace_points = []
+        self.motion_enabled = True
+        self.get_logger().info(
+            'Straight-line motion accepted from A={} to B={}.'.format(
+                point_a.tolist(),
+                point_b.tolist(),
+            )
+        )
+        return True
 
     def publish_joints(self, q):
         msg = JointState()
@@ -67,17 +114,18 @@ class StraightLineIK(Node):
         self.marker_pub.publish(marker)
 
     def update(self):
-        s = self.i / self.steps
-        target = (1.0 - s) * self.start + s * self.end
+        if not self.motion_enabled:
+            return
 
-        q = self.solve_ik(target)
+        q = self.joint_trajectory[self.i]
+        self.q = q.copy()
         self.publish_joints(q)
         self.trace_points.append(self.current_ee_point(q))
 
         self.publish_trace()
 
         self.i += 1
-        if self.i > self.steps:
+        if self.i >= len(self.joint_trajectory):
             self.i = 0
             self.trace_points = []
 
