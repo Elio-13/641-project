@@ -1,0 +1,142 @@
+<?xml version="1.0"?>
+<robot name="dobot_cr10">
+
+  <!-- Materials -->
+  <material name="grey">
+    <color rgba="0.5 0.5 0.5 1"/>
+  </material>
+
+  <!-- BASE LINK -->
+  <link name="base_link">
+    <inertial>
+      <origin xyz="0 0 0.1" rpy="0 0 0"/>
+      <mass value="5.0"/>
+      <inertia ixx="0.05" iyy="0.05" izz="0.05" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </link>
+
+  <!-- LINK 1 -->
+  <link name="link1">
+    <inertial>
+      <origin xyz="0 0 0.1" rpy="0 0 0"/>
+      <mass value="8.0"/>
+      <inertia ixx="0.08" iyy="0.08" izz="0.04" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </link>
+
+  <!-- LINK 2 -->
+  <link name="link2">
+    <inertial>
+      <origin xyz="0.3235 0 0" rpy="0 0 0"/>
+      <mass value="7.0"/>
+      <inertia ixx="0.03" iyy="0.3" izz="0.3" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </link>
+
+  <!-- LINK 3 -->
+  <link name="link3">
+    <inertial>
+      <origin xyz="0.3 0 0" rpy="0 0 0"/>
+      <mass value="4.0"/>
+      <inertia ixx="0.02" iyy="0.15" izz="0.15" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </link>
+
+  <!-- LINK 4 -->
+  <link name="link4">
+    <inertial>
+      <origin xyz="0 0 0.07" rpy="0 0 0"/>
+      <mass value="2.5"/>
+      <inertia ixx="0.01" iyy="0.01" izz="0.005" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </link>
+
+  <!-- LINK 5 -->
+  <link name="link5">
+    <inertial>
+      <origin xyz="0 0 0.05" rpy="0 0 0"/>
+      <mass value="2.0"/>
+      <inertia ixx="0.005" iyy="0.005" izz="0.003" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </link>
+
+  <!-- LINK 6 (end-effector link) -->
+  <link name="link6">
+    <inertial>
+      <origin xyz="0 0 0.05" rpy="0 0 0"/>
+      <mass value="1.0"/>
+      <inertia ixx="0.002" iyy="0.002" izz="0.001" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </link>
+
+  <!-- End-effector link -->
+  <link name="ee_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.1"/>
+      <inertia ixx="0.0001" iyy="0.0001" izz="0.0001" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </link>
+
+  <!-- JOINT 1: Base rotation (Z-axis) -->
+  <joint name="joint1" type="revolute">
+    <parent link="base_link"/>
+    <child link="link1"/>
+    <origin xyz="0 0 0.220" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-6.2832" upper="6.2832" effort="330" velocity="1.047"/>
+  </joint>
+
+  <!-- JOINT 2: Shoulder (Y-axis, with alpha=pi/2 from J1) -->
+  <joint name="joint2" type="revolute">
+    <parent link="link1"/>
+    <child link="link2"/>
+    <origin xyz="0 0 0" rpy="1.5707963 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-2.8798" upper="2.8798" effort="330" velocity="1.047"/>
+  </joint>
+
+  <!-- JOINT 3: Elbow (Y-axis, a2=0.647) -->
+  <joint name="joint3" type="revolute">
+    <parent link="link2"/>
+    <child link="link3"/>
+    <origin xyz="0.647 0 0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-2.8798" upper="2.8798" effort="150" velocity="1.047"/>
+  </joint>
+
+  <!-- JOINT 4: Wrist1 (alpha=pi/2, a3=0.600) -->
+  <joint name="joint4" type="revolute">
+    <parent link="link3"/>
+    <child link="link4"/>
+    <origin xyz="0.600 0 0" rpy="1.5707963 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-6.2832" upper="6.2832" effort="56" velocity="1.745"/>
+  </joint>
+
+  <!-- JOINT 5: Wrist2 (alpha=-pi/2, d4=0.1405) -->
+  <joint name="joint5" type="revolute">
+    <parent link="link4"/>
+    <child link="link5"/>
+    <origin xyz="0 0 0.1405" rpy="-1.5707963 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-2.8798" upper="2.8798" effort="56" velocity="1.745"/>
+  </joint>
+
+  <!-- JOINT 6: Wrist3 (d5=0.105) -->
+  <joint name="joint6" type="revolute">
+    <parent link="link5"/>
+    <child link="link6"/>
+    <origin xyz="0 0 0.105" rpy="1.5707963 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-6.2832" upper="6.2832" effort="56" velocity="2.094"/>
+  </joint>
+
+  <!-- FIXED JOINT: End-effector (d6=0.100) -->
+  <joint name="ee_joint" type="fixed">
+    <parent link="link6"/>
+    <child link="ee_link"/>
+    <origin xyz="0 0 0.100" rpy="0 0 0"/>
+  </joint>
+
+</robot>
